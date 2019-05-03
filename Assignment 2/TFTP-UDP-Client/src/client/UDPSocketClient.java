@@ -13,6 +13,8 @@ public class UDPSocketClient {
     private static final byte OP_ACK = 4;
     private static final byte OP_ERROR = 5;
     
+    //make changes to ensure it can commit
+    
     private boolean lastPacket(DatagramPacket packet) {
         return packet.getLength() < 512;
     }
