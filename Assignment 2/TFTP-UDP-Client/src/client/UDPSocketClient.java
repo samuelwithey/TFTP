@@ -13,7 +13,21 @@ public class UDPSocketClient {
     private static final byte OP_ACK = 4;
     private static final byte OP_ERROR = 5;
     
-    //make changes to ensure it can commit
+    private Packet generatePacket(PacketType pktType, byte opcode) {
+        Packet pkt = new Packet(pktType, opcode);
+        switch(pkt.getPacketType()) {
+            case RRQ:
+                break;
+            case WRQ:
+                break;
+            case DATA:
+                break;
+            case ERROR:
+                break;
+            case ACK:
+        }
+        return pkt;
+    }
     
     
     
@@ -39,6 +53,7 @@ public class UDPSocketClient {
         
         DatagramSocket socket;
         DatagramPacket packet;
+        
         
         if (args.length != 1) {
             System.out.println("the hostname of the server is required");
@@ -70,7 +85,6 @@ public class UDPSocketClient {
 
         // display response
         String received = new String(packet.getData());
-        System.out.println("Today's date: " + received.substring(0, packet.getLength()));
         socket.close();
     }
     
