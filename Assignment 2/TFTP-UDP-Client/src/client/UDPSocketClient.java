@@ -15,9 +15,7 @@ public class UDPSocketClient {
     
     //make changes to ensure it can commit
     
-    private boolean lastPacket(DatagramPacket packet) {
-        return packet.getLength() < 512;
-    }
+    
     
     private void error() {
     

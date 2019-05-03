@@ -9,9 +9,12 @@ import java.util.Date;
 
 public class UDPSocketServer extends Thread {
     
-    //another test commit
-
     protected DatagramSocket socket = null;
+    private static final byte OP_RRQ = 1;
+    private static final byte OP_WRQ = 2;
+    private static final byte OP_DATA = 3;
+    private static final byte OP_ACK = 4;
+    private static final byte OP_ERROR = 5;
 
     public UDPSocketServer() throws SocketException {
         this("UDPSocketServer");
@@ -26,6 +29,30 @@ public class UDPSocketServer extends Thread {
         socket = new DatagramSocket(9000); //Instantite a DatagramSocket
 
     }
+    
+    private void receiveFile() {}
+    
+    private void sendFile() {}
+    
+    private boolean lastPacket(DatagramPacket packet) {
+        return packet.getLength() < 512;
+    }
+    
+    private void sendAck(){}
+    
+    private void sendError() {}
+    
+    private void sendRRQ() {}
+    
+    private void sendWRQ() {}
+    
+    private void getAck() {}
+    
+    private void getData() {}
+    
+    private void getRRQ() {}
+    
+    private void getWRQ() {}
 
     @Override
     public void run() {
@@ -68,7 +95,6 @@ public class UDPSocketServer extends Thread {
 
     public static void main(String[] args) throws IOException {
         new UDPSocketServer().start();
-        System.out.println("Time Server Started");
     }
 
 }
