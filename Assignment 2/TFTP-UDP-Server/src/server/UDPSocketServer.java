@@ -8,6 +8,8 @@ import java.net.SocketException;
 import java.util.Date;
 
 public class UDPSocketServer extends Thread {
+    
+    //another test commit
 
     protected DatagramSocket socket = null;
 
