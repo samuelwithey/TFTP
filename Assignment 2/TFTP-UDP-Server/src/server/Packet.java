@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package client;
+package server;
 
 /**
  *
@@ -16,7 +16,7 @@ public class Packet {
     private String fileName; //used for RRQ and WRQ
     private String octet;   //used to set the DATA packet mode
     private byte blockNum;  //used for DATA and ACK packets
-    private byte[] data;  //used for DATA packets
+    private byte data;  //used for DATA packets
     private byte errorCode; //used for error packets
     private String errorMsg; //used for error packets
     public Packet(PacketType pktType, byte opcode, String fileName) { //constructor for RRQ and WRQ
@@ -26,7 +26,7 @@ public class Packet {
         this.octet = "octet";
     }
     
-    public Packet(PacketType pktType, byte opcode, byte blockNum, byte[] data) { //used for data packets
+    public Packet(PacketType pktType, byte opcode, byte blockNum, byte data) { //used for data packets
         this.pktType = pktType;
         this.opcode = opcode;
         this.blockNum = blockNum;
@@ -62,9 +62,9 @@ public class Packet {
         return this.blockNum;
     }
     
-//    public byte getData() {
-//        return this.data;
-//    }
+    public byte getData() {
+        return this.data;
+    }
     
     public byte getErrorCode() {
         return this.errorCode;
@@ -90,9 +90,9 @@ public class Packet {
         this.blockNum = blockNum;
     }
     
-//    public void setData(byte data) {
-//        this.data = data;
-//    }
+    public void setData(byte data) {
+        this.data = data;
+    }
     
     public void setErrorCode(byte errorCode){
         this.errorCode = errorCode;

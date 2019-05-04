@@ -7,8 +7,9 @@ package server;
 
 /**
  *
- * @author samue
+ * @author 
  */
-public class GeneratePacket {
-    
+
+public enum PacketType {
+    RRQ, WRQ, ERROR, DATA, ACK;
 }
