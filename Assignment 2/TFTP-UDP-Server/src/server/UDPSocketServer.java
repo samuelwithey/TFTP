@@ -10,11 +10,11 @@ import java.util.Date;
 public class UDPSocketServer extends Thread {
     
     protected DatagramSocket socket = null;
-    private static final byte OP_RRQ = 1;
-    private static final byte OP_WRQ = 2;
-    private static final byte OP_DATA = 3;
-    private static final byte OP_ACK = 4;
-    private static final byte OP_ERROR = 5;
+    private byte OP_RRQ = 1;
+    private byte OP_WRQ = 2;
+    private byte OP_DATA = 3;
+    private byte OP_ACK = 4;
+    private byte OP_ERROR = 5;
 
     public UDPSocketServer() throws SocketException {
         this("UDPSocketServer");

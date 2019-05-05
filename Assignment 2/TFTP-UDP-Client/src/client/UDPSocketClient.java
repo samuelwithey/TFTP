@@ -1,5 +1,7 @@
 package client;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -10,24 +12,75 @@ public class UDPSocketClient {
     
     //java function to turn data into a byte array
     
-    private byte OP_RRQ = 1; //maybe make int and convert into a byte
-    private byte OP_WRQ = 2;
-    private byte OP_DATA = 3;
-    private byte OP_ACK = 4;
-    private byte OP_ERROR = 5;
+    private final int OP_RRQ = 1;
+    private final int OP_WRQ = 2;
+    private final int OP_DATA = 3;
+    private final int OP_ACK = 4;
+    private final int OP_ERROR = 5;
     
-    private Packet generateReadandWrtiePacket(PacketType pktType, byte opcode, String fileName) {
+    private InetAddress address;
+    private DatagramSocket socket;
+    private DatagramPacket packet;
+    private Scanner scanner = new Scanner(System.in);
+    private FileOutputStream outputStream;
+    private FileInputStream inputStream;
+    
+    private UDPSocketClient() {
+        //set address
+        //set socket with random port and address
+        //set timeout
+        getUserInput();
+    }
+    
+    private boolean lastPacket(DatagramPacket packet) {
+        return packet.getLength() < 512;
+    }
+    
+    private Packet generateReadandWrtiePacket(PacketType pktType, int opcode, String fileName, InetAddress address, int port) {
         Packet pkt = new Packet(pktType, opcode, fileName);
+        byte[] buf = new byte[516];
+        /**
+         * need to work out how to do this from int to 2 bytes
+         * need to work out how to change string to bytes for file name
+         * 
+         */
+        //buf[0] = opcode;
+        //buf[1] = opcode;
+        /*
+        for (int i = 2; i < fileName.length(); i++) {
+            buf[] = pkt.getFileName().getBytes();
+        }
+        */
+        //need to set a 0 byte to seperate filename and mode
+        //need to convert mode into byte array
+        //finish with a terminating byte 0
+        //set address and port
+        //DatagramPacket packet = new DatagramPacket();
         return pkt;
     }
     
-    private Packet generateDataPacket(PacketType pktType, byte opcode, byte blockNum, byte[] data) {
-        Packet pkt = new Packet(pktType, opcode, blockNum, data);
-        return pkt;
+    private Packet generateDataPacket(PacketType pktType, int opcode, int blockNum, byte[] data, InetAddress address, int port) {
+        //Packet pkt = new Packet(pktType, opcode, blockNum, data);
+        /**
+         * need to work out how to do this from int to 2 bytes
+         * need to work out how to change string to bytes for file name
+         * 
+         */
+        //buf[0] = opcode;
+        //buf[1] = opcode;
+        /*
+        //set next 2 bytes in array to block num
+        //set the next 512 bytes to data
+        //
+        */
+        //set address and port
+        //DatagramPacket packet = new DatagramPacket();
+        return null;
     }
     
     private Packet generateAckPacket(PacketType pktType, byte opcode, byte blockNum) {
         Packet pkt = new Packet(pktType, opcode, blockNum);
+        //ACK packet only needs opcode of 2 bytes and block num of 2 bytes 
         return pkt;
     }
     
@@ -36,21 +89,38 @@ public class UDPSocketClient {
         return pkt;
     }
     
-    
-    private void error() {
-    
+    public void getUserInput() {
+        boolean finished = false;
+        while(finished) {
+            int userInput;
+            System.out.println("Press \"1\" if you would like to send a file to the server");
+            System.out.println("Press \"2\" if you would like to get a file from the server");
+            System.out.println("Press \"3\" at any time if you would like to exit the program");
+            System.out.println("Input: ");
+            userInput = scanner.nextInt();
+            if(userInput == 1) {
+                //get file name
+                //call method to send a file to the server
+            } else if(userInput == 2) {
+                //get file from users local system
+                //call method to get a file from the server
+            } else {
+                finished = true;
+            }
+            
+        }
     }
     
-    private void sendAck() {
-        
+    private void run() {
+        //sends or receives the packet
     }
     
     private void writeFile() {
-    
+        //send packets of 512 until last packet is sent
     }
     
     private void receiveFile() {
-    
+        //get a file and write it locally
     }
 
     // the client will take the IP Address of the server (in dotted decimal format as an argument)
@@ -60,24 +130,6 @@ public class UDPSocketClient {
         DatagramSocket socket;
         DatagramPacket packet;
         
-        Scanner input = new Scanner(System.in);
-        boolean finished = false;
-        while(finished) {
-            int userInput;
-            System.out.println("Press \"1\" if you would like to send a file to the server");
-            System.out.println("Press \"2\" if you would like to get a file from the server");
-            System.out.println("Press \"3\" if you would like to exit the program");
-            System.out.println("Input: ");
-            userInput = input.nextInt();
-            if(userInput == 1) {
-                //call method to send a file to the server
-            } else if(userInput == 2) {
-                //call method to get a file from the server
-            } else {
-                finished = true;
-            }
-            
-        }
         
         if (args.length != 1) {
             System.out.println("the hostname of the server is required");

@@ -12,14 +12,14 @@ package client;
 public class Packet {
    
     private PacketType pktType; //used for all packets
-    private byte opcode;    //used for all packets
+    private int opcode;    //used for all packets
     private String fileName; //used for RRQ and WRQ
     private String octet;   //used to set the DATA packet mode
     private byte blockNum;  //used for DATA and ACK packets
     private byte[] data;  //used for DATA packets
     private byte errorCode; //used for error packets
     private String errorMsg; //used for error packets
-    public Packet(PacketType pktType, byte opcode, String fileName) { //constructor for RRQ and WRQ
+    public Packet(PacketType pktType, int opcode, String fileName) { //constructor for RRQ and WRQ
         this.pktType = pktType;
         this.opcode = opcode;
         this.fileName = fileName;
@@ -50,7 +50,7 @@ public class Packet {
         return this.pktType;
     }
     
-    public byte getOpcode() {
+    public int getOpcode() {
         return this.opcode;
     }
     
@@ -78,7 +78,7 @@ public class Packet {
         this.pktType = pktType;
     }
     
-    public void setOpcode(byte opcode) {
+    public void setOpcode(int opcode) {
         this.opcode = opcode;
     }
     
