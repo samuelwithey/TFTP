@@ -36,8 +36,8 @@ public class UDPSocketClient {
         return packet.getLength() < 512;
     }
     
-    private Packet generateReadandWrtiePacket(PacketType pktType, int opcode, String fileName, InetAddress address, int port) {
-        Packet pkt = new Packet(pktType, opcode, fileName);
+    private DatagramPacket generateReadandWrtiePacket(String fileName, InetAddress address, int port) {
+        //Packet pkt = new Packet(pktType, opcode, fileName);
         byte[] buf = new byte[516];
         /**
          * need to work out how to do this from int to 2 bytes
@@ -56,10 +56,10 @@ public class UDPSocketClient {
         //finish with a terminating byte 0
         //set address and port
         //DatagramPacket packet = new DatagramPacket();
-        return pkt;
+        return null;
     }
     
-    private Packet generateDataPacket(PacketType pktType, int opcode, int blockNum, byte[] data, InetAddress address, int port) {
+    private DatagramPacket generateDataPacket(int blockNum, byte[] data, InetAddress address, int port) {
         //Packet pkt = new Packet(pktType, opcode, blockNum, data);
         /**
          * need to work out how to do this from int to 2 bytes
@@ -78,15 +78,15 @@ public class UDPSocketClient {
         return null;
     }
     
-    private Packet generateAckPacket(PacketType pktType, byte opcode, byte blockNum) {
-        Packet pkt = new Packet(pktType, opcode, blockNum);
+    private DatagramPacket generateAckPacket(int blockNum) {
+        //Packet pkt = new Packet(pktType, opcode, blockNum);
         //ACK packet only needs opcode of 2 bytes and block num of 2 bytes 
-        return pkt;
+        return null;
     }
     
-    private Packet generateErrorPacket(PacketType pktType, byte opcode, byte errorCode, String errorMsg) {
-        Packet pkt = new Packet(pktType, opcode, errorCode, errorMsg);
-        return pkt;
+    private DatagramPacket generateErrorPacket(int errorCode, String errorMsg) {
+        //Packet pkt = new Packet(pktType, opcode, errorCode, errorMsg);
+        return null;
     }
     
     public void getUserInput() {
