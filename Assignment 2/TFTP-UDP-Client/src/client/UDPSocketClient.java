@@ -25,7 +25,8 @@ public class UDPSocketClient {
     private FileOutputStream outputStream;
     private FileInputStream inputStream;
     
-    public UDPSocketClient() {
+    public UDPSocketClient() throws IOException {
+        address = InetAddress.getByName("127.0.0.1");
         getUserInput();
     }
     

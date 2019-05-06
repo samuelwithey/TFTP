@@ -32,7 +32,7 @@ public class PacketTest {
     private final int OP_ERROR = 5;
     
     @Before
-    public void setUp() {
+    public void setUp() throws IOException {
         client = new UDPSocketClient();
     }
 

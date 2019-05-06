@@ -5,6 +5,7 @@
  */
 package client;
 
+import java.io.IOException;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -21,7 +22,7 @@ public class OpcodeTest {
     private int opcode = 2;
     
    @Test
-   public void setOpcodeTest() {
+   public void setOpcodeTest() throws IOException {
        UDPSocketClient client = new UDPSocketClient();
        byte[] arr = client.setOpcode(opcode);
        int returnOpcode = client.getOpcode(arr);
