@@ -33,60 +33,68 @@ public class UDPSocketClient {
     }
     
     private boolean lastPacket(DatagramPacket packet) {
-        return packet.getLength() < 512;
+        return packet.getLength() < 512; //needs rethinking
     }
     
-    private DatagramPacket generateReadandWrtiePacket(String fileName, InetAddress address, int port) {
-        //Packet pkt = new Packet(pktType, opcode, fileName);
-        byte[] buf = new byte[516];
+    private DatagramPacket generateReadandWrtiePacket(int opcode, String fileName, InetAddress address, int port) {
         /**
-         * need to work out how to do this from int to 2 bytes
-         * need to work out how to change string to bytes for file name
-         * 
+         * Need to think of a better way to do this method. It isn't very efficient
          */
-        //buf[0] = opcode;
-        //buf[1] = opcode;
-        /*
-        for (int i = 2; i < fileName.length(); i++) {
-            buf[] = pkt.getFileName().getBytes();
-        }
-        */
-        //need to set a 0 byte to seperate filename and mode
-        //need to convert mode into byte array
-        //finish with a terminating byte 0
-        //set address and port
-        //DatagramPacket packet = new DatagramPacket();
-        return null;
+        int totalBytes = 0;
+        byte[] buf = new byte[516];
+        buf[0] = (byte) opcode; //not right
+        buf[1] = (byte) opcode; //not right
+        totalBytes = 2;
+        byte[] file = fileName.getBytes();
+        totalBytes += file.length;
+        System.arraycopy(file, 0, buf, 2, file.length);
+        byte f = 0;
+        totalBytes += 1;
+        buf[totalBytes] = f;
+        byte[] mode = "octet".getBytes();
+        totalBytes += 1;
+        System.arraycopy(mode, 0, buf, totalBytes , mode.length);
+        totalBytes += mode.length;
+        totalBytes += 1;
+        buf[totalBytes] = f; //don't think this is correct
+        DatagramPacket pkt = new DatagramPacket(buf, totalBytes, address, port);
+        return pkt;
     }
     
     private DatagramPacket generateDataPacket(int blockNum, byte[] data, InetAddress address, int port) {
-        //Packet pkt = new Packet(pktType, opcode, blockNum, data);
+        byte[] buf = new byte[516];
         /**
-         * need to work out how to do this from int to 2 bytes
-         * need to work out how to change string to bytes for file name
-         * 
+         * I don't think any of the casting is right at all.
          */
-        //buf[0] = opcode;
-        //buf[1] = opcode;
-        /*
-        //set next 2 bytes in array to block num
-        //set the next 512 bytes to data
-        //
-        */
-        //set address and port
-        //DatagramPacket packet = new DatagramPacket();
+        buf[0] = (byte) OP_DATA;
+        buf[1] = (byte) OP_DATA;
+        buf[2] = (byte) blockNum;
+        buf[3] = (byte) blockNum;
+        System.arraycopy(data, 0, buf, 5, data.length);
+        DatagramPacket pkt = new DatagramPacket(buf, data.length + 4, address, port);
         return null;
     }
     
-    private DatagramPacket generateAckPacket(int blockNum) {
-        //Packet pkt = new Packet(pktType, opcode, blockNum);
-        //ACK packet only needs opcode of 2 bytes and block num of 2 bytes 
-        return null;
+    private DatagramPacket generateAckPacket(int blockNum, InetAddress address, int port) {
+        byte[] buf = new byte[516];
+        buf[0] = (byte) OP_ACK;
+        buf[1] = (byte) OP_ACK;
+        buf[2] = (byte) blockNum;
+        buf[3] = (byte) blockNum;
+        DatagramPacket pkt = new DatagramPacket(buf, 4, address, port);
+        return pkt;
     }
     
-    private DatagramPacket generateErrorPacket(int errorCode, String errorMsg) {
-        //Packet pkt = new Packet(pktType, opcode, errorCode, errorMsg);
-        return null;
+    private DatagramPacket generateErrorPacket(int errorCode, String errorMsg, InetAddress address, int port) {
+        byte[] buf = new byte[516];
+        buf[0] = (byte) OP_ERROR;
+        buf[1] = (byte) OP_ERROR;
+        buf[2] = (byte) errorCode;
+        buf[3] = (byte) errorCode;
+        System.arraycopy(errorMsg.getBytes(), 0, buf, 4, errorMsg.getBytes().length);
+        buf[errorMsg.getBytes().length + 4] = (byte) 0;
+        DatagramPacket pkt = new DatagramPacket(buf, errorMsg.getBytes().length + 4, address, port);
+        return pkt;
     }
     
     public void getUserInput() {
