@@ -40,7 +40,7 @@ public class PacketTest {
     public void createReadRequest() throws IOException {
         String fileName = "helloworld.txt";
         InetAddress address = InetAddress.getByName("127.0.0.1");
-        DatagramPacket pkt = client.generateReadandWrtiePacket(OP_RRQ, fileName, address, 2000);
+        DatagramPacket pkt = client.generateReadorWritePacket(OP_RRQ, fileName, address, 2000);
         System.out.println("Read Request Opcode: " + client.getOpcode(pkt.getData()));
         assertThat(OP_RRQ, is(equalTo(client.getOpcode(pkt.getData()))));
         System.out.println("Read Request filename: " + client.getFileName(pkt.getData()));
@@ -51,7 +51,7 @@ public class PacketTest {
     public void createWriteRequest() throws IOException{
         String fileName = "helloworld.txt";
         InetAddress address = InetAddress.getByName("127.0.0.1");
-        DatagramPacket pkt = client.generateReadandWrtiePacket(OP_WRQ, fileName, address, 2000);
+        DatagramPacket pkt = client.generateReadorWritePacket(OP_WRQ, fileName, address, 2000);
         System.out.println("Write Request Opcode: " + client.getOpcode(pkt.getData()));
         assertThat(OP_WRQ, is(equalTo(client.getOpcode(pkt.getData()))));
         System.out.println("Write Request filename: " + client.getFileName(pkt.getData()));

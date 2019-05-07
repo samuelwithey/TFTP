@@ -10,6 +10,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -33,30 +34,8 @@ public class PacketTest {
     private final int OP_ERROR = 5;
     
     @Before
-    public void setUp() throws SocketException {
+    public void setUp() throws SocketException, UnknownHostException {
         server = new UDPSocketServer();
-    }
-
-    @Test
-    public void createReadRequest() throws IOException {
-        String fileName = "helloworld.txt";
-        InetAddress address = InetAddress.getByName("127.0.0.1");
-        DatagramPacket pkt = server.generateReadandWrtiePacket(OP_RRQ, fileName, address, 2000);
-        System.out.println("Read Request Opcode: " + server.getOpcode(pkt.getData()));
-        assertThat(OP_RRQ, is(equalTo(server.getOpcode(pkt.getData()))));
-        System.out.println("Read Request filename: " + server.getFileName(pkt.getData()));
-        assertThat(fileName, is(equalTo(server.getFileName(pkt.getData()))));
-    }
-    
-    @Test
-    public void createWriteRequest() throws IOException{
-        String fileName = "helloworld.txt";
-        InetAddress address = InetAddress.getByName("127.0.0.1");
-        DatagramPacket pkt = server.generateReadandWrtiePacket(OP_WRQ, fileName, address, 2000);
-        System.out.println("Write Request Opcode: " + server.getOpcode(pkt.getData()));
-        assertThat(OP_WRQ, is(equalTo(server.getOpcode(pkt.getData()))));
-        System.out.println("Write Request filename: " + server.getFileName(pkt.getData()));
-        assertThat(fileName, is(equalTo(server.getFileName(pkt.getData()))));
     }
     
     @Test
