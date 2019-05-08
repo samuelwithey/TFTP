@@ -32,18 +32,123 @@ public class UDPSocketClient {
     private FileOutputStream outputStream;
     private FileInputStream inputStream;
     
+    private int destinationTID = 9000;
+    
     public UDPSocketClient() throws IOException {
         address = InetAddress.getByName("127.0.0.1");
+        socket = new DatagramSocket(generateTID(), address);
         getUserInput();
+    }
+    
+        public void getUserInput() {
+        BufferedReader input = new BufferedReader (new InputStreamReader(System.in));
+        boolean finished = false;
+        try {
+            while(!finished) {
+                int userInput;
+                System.out.println("Press \"1\" if you would like to send a file to the server");
+                System.out.println("Press \"2\" if you would like to get a file from the server");
+                System.out.println("Press \"3\" if you would like to exit the program");
+                System.out.println("Input: ");
+                userInput = Integer.parseInt(input.readLine());
+                if(userInput == 1) {
+                    System.out.println("Please enter the filename to send to the server: ");
+                    String fileName = input.readLine();
+                    writeFile(fileName); //error here
+                    getUserInput();
+                } else if(userInput == 2) {
+                    System.out.println("Please enter the filename of the file on the server");
+                    String fileName = input.readLine();
+                    receiveFile(fileName);
+                    getUserInput();
+                } else {
+                    finished = true;
+                }
+            }
+        } catch(IOException e) {
+            System.out.println("Error");
+        }
+    }
+    
+    public void writeFile(String fileName) throws SocketException, IOException {
+        File file = getFile(fileName); //do I need a try catch?
+        int expectedBlockNum = 0;
+        //socket = new DatagramSocket(generateTID());
+        byte[] fileData = Files.readAllBytes(file.toPath());
+        int bytesLeft = fileData.length;
+        System.out.println("Total Bytes of file: " + bytesLeft);
+        int index = 0;
+        DatagramPacket WRQ = generateReadorWritePacket(OP_WRQ, fileName, address, destinationTID);
+        socket.send(WRQ);
+        packet = new DatagramPacket(new byte[516], 516);
+        System.out.println("Write request has been sent");
+        do {
+            socket.receive(packet); //doesn't seem to receive ack packet
+            System.out.println("Packet has been receieved from server");
+            destinationTID = packet.getPort();
+            if(getOpcode(packet.getData()) == OP_ACK && getBlockNum(packet.getData()) == expectedBlockNum) {
+                System.out.println("Ack packet has correct block number");
+                expectedBlockNum++;
+                if(bytesLeft >= 512) {
+                    byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + 512);
+                    bytesLeft -= 512;
+                    index += 512;
+                    DatagramPacket dataPacket = generateDataPacket(getBlockNum(packet.getData()), dataToSend, address, destinationTID); //sends back the same block number
+                    socket.send(dataPacket);
+                    System.out.println("Data packet has been sent");
+                    expectedBlockNum++;
+                } else if(bytesLeft < 512) {
+                    byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + bytesLeft + 1);
+                    bytesLeft = 0;
+                    index += bytesLeft;
+                    DatagramPacket dataPacket = generateDataPacket(getBlockNum(packet.getData()), dataToSend, address, destinationTID); //sends back the same block number
+                    socket.send(dataPacket);
+                    System.out.println("Final data packet has been sent");
+                    expectedBlockNum++;
+                } else {
+                    System.out.println("Packet error");
+                }
+            } else {
+                System.out.println("Error");
+            }
+        } while(bytesLeft > 0);
+        socket.close();
+    }
+    
+    
+    public void receiveFile(String fileName) throws SocketException, IOException {
+        Path currentRelativePath = Paths.get("");
+        String filePath = currentRelativePath.toAbsolutePath().toString();
+        filePath += "//" + fileName;
+        outputStream = new FileOutputStream(filePath); //uses generate path with fileName to write to
+        int expectedBlockNum = 0;
+        int destinationTID = 9000;
+        socket = new DatagramSocket(generateTID()); //generate new socket using random TID port
+        DatagramPacket RRQ = generateReadorWritePacket(OP_RRQ, fileName, address, destinationTID); //create RRQ using fileName and initalise port to 9000
+        //create a timeout
+        socket.send(RRQ); //send RRQ
+        //need try catch for error checking
+        DatagramPacket receivedPacket;
+        do {
+            receivedPacket = new DatagramPacket(new byte[516], 516);
+            socket.receive(receivedPacket);
+            destinationTID = receivedPacket.getPort(); //getting TID from server
+            if(getOpcode(receivedPacket.getData()) == OP_DATA && getBlockNum(receivedPacket.getData()) == expectedBlockNum) {
+                outputStream.write(Arrays.copyOfRange(receivedPacket.getData(), 4, receivedPacket.getLength() - 1)); //need to change
+                DatagramPacket ackPack = generateAckPacket(getBlockNum(receivedPacket.getData()), address, destinationTID);
+                socket.send(ackPack);
+                expectedBlockNum++;
+            } else if(getOpcode(receivedPacket.getData()) == OP_ERROR) {
+                System.out.println("An error packet was received");
+            }
+        } while(receivedPacket.getData().length == 516);
+        outputStream.close();
+        socket.close();
     }
     
     public int generateTID() {
         Random rand = new Random();
         return rand.nextInt(60000) + 1024;
-    }
-    
-    private boolean lastPacket(DatagramPacket packet) {
-        return packet.getLength() < 512; //needs rethinking
     }
     
     public DatagramPacket generateReadorWritePacket(int opcode, String fileName, InetAddress address, int port) {
@@ -80,102 +185,6 @@ public class UDPSocketClient {
         System.arraycopy((errorMsg+"\0").getBytes(), 0, buf, setOpcode(OP_ERROR).length + setErrorCode(errorCode).length, errorMsg.getBytes().length + 1);
         DatagramPacket pkt = new DatagramPacket(buf, buf.length, address, port);
         return pkt;
-    }
-    
-    public void getUserInput() {
-        BufferedReader input = new BufferedReader (new InputStreamReader(System.in));
-        boolean finished = false;
-        try {
-            while(finished) {
-                int userInput;
-                System.out.println("Press \"1\" if you would like to send a file to the server");
-                System.out.println("Press \"2\" if you would like to get a file from the server");
-                System.out.println("Press \"3\" if you would like to exit the program");
-                System.out.println("Input: ");
-                userInput = Integer.parseInt(input.readLine());
-                if(userInput == 1) {
-                    System.out.println("Please enter the filename to send to the server: ");
-                    String fileName = input.readLine();
-                    writeFile(fileName);
-                    finished = true; //could call the method again?
-                } else if(userInput == 2) {
-                    System.out.println("Please enter the filename of the file on the server");
-                    String fileName = input.readLine();
-                    receiveFile(fileName);
-                    finished = true; //could call the method again?
-                } else {
-                    finished = true;
-                }
-            }
-        } catch(IOException e) {
-            System.out.println("Error");
-        }
-    }
-    
-    public void writeFile(String fileName) throws SocketException, IOException {
-        File file = getFile(fileName); //need some error checking?
-        int expectedBlockNum = 0;
-        int destinationTID = 9000;
-        socket = new DatagramSocket(generateTID());
-        byte[] fileData = Files.readAllBytes(file.toPath());
-        int bytesLeft = fileData.length;
-        int index = 0;
-        DatagramPacket WRQ = generateReadorWritePacket(OP_WRQ, fileName, address, destinationTID);
-        socket.send(WRQ);
-        do {
-            socket.receive(packet);
-            destinationTID = packet.getPort();
-            if(getOpcode(packet.getData()) == OP_ACK && getBlockNum(packet.getData()) == expectedBlockNum && bytesLeft > 0) {
-                expectedBlockNum++;
-                if(bytesLeft >= 512) {
-                    byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + 512);
-                    bytesLeft -= 512;
-                    index += 512;
-                    DatagramPacket dataPacket = generateDataPacket(getBlockNum(packet.getData()), dataToSend, address, destinationTID); //sends back the same block number
-                    socket.send(dataPacket);
-                    expectedBlockNum++;
-                } else if(bytesLeft < 512) {
-                    byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + bytesLeft);
-                    bytesLeft = 0;
-                    index += bytesLeft;
-                    DatagramPacket dataPacket = generateDataPacket(getBlockNum(packet.getData()), dataToSend, address, destinationTID); //sends back the same block number
-                    socket.send(dataPacket);
-                    expectedBlockNum++;
-                }
-            } else {
-                System.out.println("Error");
-            }
-        } while(bytesLeft > 0);
-        socket.close();
-    }
-    
-    
-    public void receiveFile(String fileName) throws SocketException, IOException {
-        Path currentRelativePath = Paths.get("");
-        String filePath = currentRelativePath.toAbsolutePath().toString();
-        filePath += "//" + fileName;
-        outputStream = new FileOutputStream(filePath); //uses generate path with fileName to write to
-        int expectedBlockNum = 0;
-        int destinationTID = 9000;
-        socket = new DatagramSocket(generateTID()); //generate new socket using random TID port
-        DatagramPacket RRQ = generateReadorWritePacket(OP_RRQ, fileName, address, destinationTID); //create RRQ using fileName and initalise port to 9000
-        //create a timeout
-        socket.send(RRQ); //send RRQ
-        //need try catch for error checking
-        do {
-            socket.receive(packet); //receive pac
-            destinationTID = packet.getPort(); //getting TID from server
-            if(getOpcode(packet.getData()) == OP_DATA && getBlockNum(packet.getData()) == expectedBlockNum) {
-                outputStream.write(Arrays.copyOfRange(packet.getData(), 4, packet.getLength() - 1)); //need to change
-                DatagramPacket ackPack = generateAckPacket(getBlockNum(packet.getData()), address, destinationTID);
-                socket.send(ackPack);
-                expectedBlockNum++;
-            } else if(getOpcode(packet.getData()) == OP_ERROR) {
-                System.out.println("An error packet was received");
-            }
-        } while(packet.getData().length == 516 && ((getOpcode(packet.getData()) == OP_DATA) || (getOpcode(packet.getData()) == OP_ERROR)));
-        outputStream.close();
-        socket.close();
     }
     
     public File getFile(String fileName) {
@@ -245,7 +254,7 @@ public class UDPSocketClient {
     }         
 
     public static void main(String[] args) throws IOException {
-        UDPSocketClient client = new UDPSocketClient();
+        UDPSocketClient client = new UDPSocketClient(); //error here
     }
     
 }
