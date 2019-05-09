@@ -57,6 +57,7 @@ public class TCPServerThread extends Thread {
         this.socket = socket;
         inputData = new DataInputStream(socket.getInputStream());
         outputData = new DataOutputStream(socket.getOutputStream());
+        blockNum = 0;
         System.out.println("Thread has been created");
     }
     
@@ -67,17 +68,22 @@ public class TCPServerThread extends Thread {
     public void run() {
         try {
             byte[] buf = new byte[516];
-            outputData.write(buf);
+            inputData.read(buf);
             int opcode = getOpcode(buf);
             System.out.println("opcode: " + opcode);
-            System.out.println("First packet has been received.");
+            System.out.println("Request has been received.");
             if(opcode == OP_RRQ) {
-                writeFileToClient();
+                System.out.println("Read request has been received.");
+                String fileName = getFileName(buf);
+                System.out.println("File Name: " + fileName);
+                writeFileToClient(fileName);
             } else if(opcode == OP_WRQ) {
-                getFileFromClient();
+                System.out.println("Write request has been received.");
+                String fileName = getFileName(buf);
+                System.out.println("File Name: " + fileName);
+                getFileFromClient(fileName);
             }
         } catch (IOException ex) {
-            //Logger.getLogger(TCPServerThread.class.getName()).log(Level.SEVERE, null, ex);
             System.out.println("Error with packets");
         }
     }
@@ -89,39 +95,34 @@ public class TCPServerThread extends Thread {
      * before sending each chunk of 512 bytes. Once all the data has been sent and the final acknowledgement packet has been received, the connection
      * is closed.
      */
-    public void writeFileToClient(){ //read request
+    public void writeFileToClient(String fileName){ //read request
         try {
-            byte[] data = new byte[inputData.readInt()];
-            inputData.read(data);
-            System.out.println("Server read a file");
-            File file = new File(getFileName(data));
-            System.out.println("File");
-            inputStream = new FileInputStream(file);
-            byte[] fileData;
+            byte[] data;
+            inputStream = new FileInputStream(getFile(fileName));
             int bytesLeft;
             bytesLeft = inputStream.available();
             if(bytesLeft >= 512) {
-                fileData = new byte[512];
+                data = new byte[512];
             } else {
-                fileData = new byte[bytesLeft];
+                data = new byte[bytesLeft];
             }
             do {
-                inputStream.read(data);
+                inputStream.read(data); //getting data from file
                 byte[] total = new byte[data.length + 4];
-                outputData.writeInt(total.length);
+                //outputData.writeInt(total.length);
                 setOpcode(total, OP_DATA);
                 setBlockNum(total, blockNum++);
                 setData(total, data);
-                outputData.write(data);
+                outputData.write(total);
                 bytesLeft = inputStream.available();
                 if(bytesLeft >= 512) {
-                    fileData = new byte[512];
+                    data = new byte[512];
                 } else {
-                    fileData = new byte[bytesLeft];
+                    data = new byte[bytesLeft];
                 }
             } while(bytesLeft > 0);
         } catch(IOException e) {
-            System.out.println("Error");
+            System.out.println("Error with read request");
         }
     }
     
@@ -132,28 +133,24 @@ public class TCPServerThread extends Thread {
      * a final acknowledgement is sent and the connection is closed.
      * 
      */
-    public void getFileFromClient() throws IOException { //WRQ
+    public void getFileFromClient(String fileName) throws IOException { //WRQ
         byte[] data;
-        data = new byte[inputData.readInt()];
-        inputData.read(data);
-        File file = new File(getFileName(data));
-        outputStream = new FileOutputStream(file);
-        byte[] fileData;
+        outputStream = new FileOutputStream(getFile(fileName));
         try {
             do {
-                fileData = new byte[inputData.readInt()];
+                data = new byte[516];
                 inputData.read(data);
-                if(OP_DATA == getOpcode(fileData)) {
-                    outputData.write(Arrays.copyOfRange(data, 4, data.length));
+                if(OP_DATA == getOpcode(data)) {
+                    outputStream.write(Arrays.copyOfRange(data, 4, data.length));
                 }
-            } while(removeTrailingBytes(fileData).length == 516);
+            } while(removeTrailingBytes(data).length == 516);
         } catch(IOException e){
             System.out.println("Error");
         }
     }
     
     public void setData(byte[] arr, byte[] data) {
-        System.arraycopy(data, 0, arr, 4, arr.length);
+        System.arraycopy(data, 0, arr, 4, data.length);
     }
     
     public byte[] requestPacket(int opcode, String fileName, InetAddress address, int port ) {

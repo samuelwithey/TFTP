@@ -15,17 +15,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import static java.lang.Byte.compare;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -56,9 +51,6 @@ public class TCPClient {
      */
     public TCPClient() throws IOException {
         address = InetAddress.getByName("127.0.0.1");
-        socket = new Socket(address, 9000);
-        inputData = new DataInputStream(socket.getInputStream());
-        outputData = new DataOutputStream(socket.getOutputStream());
         getUserInput();
     }
     
@@ -112,16 +104,22 @@ public class TCPClient {
      * socket is closed.
      * @param fileName passed from getUserInput() to get the file from the client.
      */
-    public void writeFile(String fileName) throws IOException {
+    public void writeFile(String fileName) throws IOException { //WRQ
+        socket = new Socket(address, 9000);
+        inputData = new DataInputStream(socket.getInputStream());
+        outputData = new DataOutputStream(socket.getOutputStream());
+        
         System.out.println("Generating request packet");
-        byte[] requestPacket = requestPacket(OP_WRQ, fileName, address, 9000);
-        outputData.writeInt(requestPacket.length);
-        outputData.write(requestPacket);
+        byte[] request = requestPacket(OP_WRQ, fileName);
+        outputData.write(request);
         System.out.println("Request packet sent");
-        blockNum = 1;
-        inputStream = new FileInputStream(new File(fileName));
+        
+        blockNum = 0;
+        inputStream = new FileInputStream(new File(fileName)); //gets file
+        
         byte[] data;
         int bytesLeft;
+        
         try {
             do{
                 bytesLeft = inputStream.available();
@@ -132,15 +130,15 @@ public class TCPClient {
                 }
                 inputStream.read(data);
                 byte[] allData = new byte[data.length + 4];
-                outputData.writeInt(allData.length);
                 setOpcode(allData, OP_DATA);
                 setBlockNum(allData, blockNum++);
                 setData(allData, data);
                 outputData.write(allData);
-            } while(bytesLeft != 0) ;
+            } while(bytesLeft > 0) ;
         } catch (IOException e) {
             System.out.println("Error");
         }
+        socket.close();
     }
     
     /**
@@ -152,11 +150,13 @@ public class TCPClient {
      * 512 bytes of data. The socket will then close and the user menu will be displayed.
      * @param fileName passed as a parameter from getUserInput() and used to send to the server through a RRQ packet.
      */
-    public void receiveFile(String fileName) {
-        byte[] requestPacket = requestPacket(OP_RRQ, fileName, address, 9000); //send WRQ
+    public void receiveFile(String fileName) throws IOException {
+        socket = new Socket(address, 9000);
+        inputData = new DataInputStream(socket.getInputStream());
+        outputData = new DataOutputStream(socket.getOutputStream());
+        byte[] request = requestPacket(OP_RRQ, fileName); //send RRQ
         try {
-            outputData.writeInt(requestPacket.length);
-            outputData.write(requestPacket);
+            outputData.write(request);
         } catch (IOException e) {
             System.out.println("Error");;
         }
@@ -168,7 +168,7 @@ public class TCPClient {
         byte[] data;
         try {
             do {
-                data = new byte[inputData.readInt()];
+                data = new byte[516];
                 inputData.read(data);
                 if(getOpcode(data) == OP_DATA) {
                     outputStream.write(Arrays.copyOfRange(getData(data), 0, data.length - 4));
@@ -177,14 +177,13 @@ public class TCPClient {
                 }
             } while(removeTrailingBytes(data).length == 516);
             System.out.println("All data has been received and written to file");
-            outputStream.close();
-            socket.close();
         } catch(IOException e) {
             System.out.println("Error");
         }
+        socket.close();
     }
     
-    public byte[] requestPacket(int opcode, String fileName, InetAddress address, int port ) {
+    public byte[] requestPacket(int opcode, String fileName) {
         byte[] arr = new byte[516];
         setOpcode(arr, opcode);
         setFileName(arr, fileName);
@@ -193,7 +192,7 @@ public class TCPClient {
     }
     
     public void setFileName(byte[] arr, String fileName) {
-        System.arraycopy((fileName+"/0").getBytes(), 0, arr, 2, fileName.length() + 1);
+        System.arraycopy((fileName+"\0").getBytes(), 0, arr, 2, fileName.length() + 1);
     }
     
     public void setMode(byte[] arr, int fileNameLength) {
@@ -250,10 +249,9 @@ public class TCPClient {
      * @param opcode The opcode to be converted into a byte array of size 2.
      * @return byte array of the converted opcode.
      */
-    public byte[] setOpcode(byte[] arr, int opcode) {
+    public void setOpcode(byte[] arr, int opcode) {
         arr[0] = (byte) ((opcode >> 8) & 0xFF);
         arr[1] = (byte) (opcode & 0xFF);
-        return arr;
     }
     
     /**
