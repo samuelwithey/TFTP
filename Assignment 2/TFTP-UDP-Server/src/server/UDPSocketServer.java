@@ -23,7 +23,6 @@ public class UDPSocketServer {
             while (true) {
                 DatagramPacket receivePacket = new DatagramPacket(buf, 516); //create a packet
                 socket.receive(receivePacket); //wait until a client sends something (blocking call)
-                System.out.println("Packet has been receieved");
                 new UDPSocketServerThread(receivePacket).start();
             }
         } catch (IOException e) {
