@@ -16,7 +16,8 @@ import java.util.Arrays;
 import java.util.Random;
 
 /**
- * 
+ * The class allows the client to interact with the server thread. The initial packet sent will be checked if it is a 
+ * RRQ or WRQ and the corresponding methods will be called.
  * @author 164574
  */
 public class UDPSocketServerThread extends Thread {
@@ -31,6 +32,13 @@ public class UDPSocketServerThread extends Thread {
     private final int OP_ACK = 4;
     private final int OP_ERROR = 5;
 
+    /**
+     * The constructor sets the address, generates a new socket, assigns the initial packet to a DatagramPacket and sets the TID
+     * to the random TID of the received packet.
+     * @param receivedPacket
+     * @throws SocketException
+     * @throws UnknownHostException 
+     */
     public UDPSocketServerThread(DatagramPacket receivedPacket) throws SocketException, UnknownHostException {
         address = InetAddress.getByName("127.0.0.1");
         socket = new DatagramSocket(generateTID(), address);
@@ -39,6 +47,9 @@ public class UDPSocketServerThread extends Thread {
         System.out.println("Thread has been created");
     }
     
+    /**
+     * The method checks the opcode of the received packet. It calls the corresponding methods based on the opcode.
+     */
     @Override
     public void run() {
         if(getOpcode(receivePacket.getData()) == OP_RRQ) {
@@ -50,11 +61,22 @@ public class UDPSocketServerThread extends Thread {
         }
     }
     
+    /**
+     * Returns a random int between 1024 and 60000 to be used as a port.
+     * @return random int between 1024 and 60000
+     */
     public int generateTID() {
         Random rand = new Random();
         return rand.nextInt(60000) + 1024;
     }
     
+    /**
+     * The method handles the functionality of the Read Request (RRQ). It gets the file name from the RRQ Packet and gets the file
+     * locally. If the file is not found, an error message is displayed in the log and an error packet is sent back. If the file is found,
+     * the method sends the data in 512 bytes using the data packet. It waits to receive an Acknowledgement Packet with the correct block number
+     * before sending each chunk of 512 bytes. Once all the data has been sent and the final acknowledgement packet has been received, the connection
+     * is closed.
+     */
     public void writeFileToClient(){
         try {
             int blockNum = 1;
@@ -73,6 +95,10 @@ public class UDPSocketServerThread extends Thread {
             }
             fileData = Files.readAllBytes(file.toPath());
             bytesLeft = fileData.length;
+            /*
+            * This conditional statement is needed to initially start sending data packets after receiving the RRQ and before
+            * receiving the first acknowledgement packet.
+            */
             if(bytesLeft >= 512) {
                 byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + 512);
                 DatagramPacket dataPacket = generateDataPacket(blockNum, dataToSend, address, destinationTID);
@@ -128,9 +154,11 @@ public class UDPSocketServerThread extends Thread {
     }
     
     /**
-     * WRQ
-     * @throws SocketException
-     * @throws IOException 
+     * The method handles the functionality of the Write Request Packet (WRQ). The method replies to the initial WRQ packet with an
+     * acknowledgement packet. The method then waits to receive data packets from the client and sends back acknowledgements
+     * with the correct block number. Once the final packet has been received and all the data has been written to the file in the WRQ, 
+     * a final acknowledgement is sent and the connection is closed.
+     * 
      */
     public void getFileFromClient() {
         try {
@@ -166,6 +194,11 @@ public class UDPSocketServerThread extends Thread {
         }
     }
     
+    /**
+     * The method removes the empty bytes from the byte array.
+     * @param bytes byte array that the trailing bytes need to be removed.
+     * @return 
+     */
     private byte[] removeTrailingBytes(byte[] bytes) {
         int i = bytes.length - 1;
         while(i >= 0 && bytes[i] == 0) {
@@ -174,6 +207,12 @@ public class UDPSocketServerThread extends Thread {
         return Arrays.copyOf(bytes, i + 1);
     }
     
+    /**
+     * The method generates a file path using the file name passed through the parameter and gets the file locally.
+     * The file is then returned.
+     * @param fileName The file name of the file to be found
+     * @return The file from the file name given
+     */
     public File getFile(String fileName) {
         Path currentRelativePath = Paths.get("");
         String filePath = currentRelativePath.toAbsolutePath().toString();
@@ -181,6 +220,16 @@ public class UDPSocketServerThread extends Thread {
         return file;
     }
     
+    /**
+     * The method generates a Data Packet. It uses methods to convert the opcode and block number into byte arrays and these
+     * are copied into the buf array. The data can be directly copied into the buf array as it is already a byte array.
+     * The buf array, address and port are all used in the constructor to generate a new packet and this is returned.
+     * @param blockNum The block number of the current Data Packet
+     * @param data The data to be added to the buf array
+     * @param address The address used for the constructor of DatagramPacket
+     * @param port The port used for the constructor of DatagramPacket
+     * @return DatagramPacket for a Data Packet
+     */
     public DatagramPacket generateDataPacket(int blockNum, byte[] data, InetAddress address, int port) {
         byte[] buf = new byte[516];
         System.arraycopy(setOpcode(OP_DATA), 0, buf, 0, setOpcode(OP_DATA).length);
@@ -190,6 +239,15 @@ public class UDPSocketServerThread extends Thread {
         return pkt;
     }
     
+     /**
+     * The method generates an Acknowledgement Packet. It uses methods to convert the opcode and block number into byte arrays
+     * and these are copied into the byte array. The buf array, address and port are passed through the constructor to create a 
+     * new DatagramPacket. This is then returned.
+     * @param blockNum The block number of the current Acknowledgement Packet.
+     * @param address The address used for the constructor of DatagramPacket
+     * @param port The port used for the constructor of DatagramPacket
+     * @return DatagramPacket for a Acknowledgement Packet
+     */
     public DatagramPacket generateAckPacket(int blockNum, InetAddress address, int port) {
         byte[] buf = new byte[516];
         System.arraycopy(setOpcode(OP_ACK), 0, buf, 0, setOpcode(OP_ACK).length);
@@ -198,6 +256,16 @@ public class UDPSocketServerThread extends Thread {
         return pkt;
     }
     
+    /**
+     * The method generates an ErrorPacket. It uses methods to convert the the opcode, error code and the error message
+     * into byte arrays and these are copied into the buf array. The byf array, address and port are passed through the 
+     * constructor to create a new DatagramPacket. This is then returned.
+     * @param errorCode The error code corresponding to the error
+     * @param errorMsg The error message as a string
+     * @param address The address used for the constructor of DatagramPacket
+     * @param port The port used for the constructor of DatagramPacket
+     * @return DatagramPacket for a Error Packet
+     */
     public DatagramPacket generateErrorPacket(int errorCode, String errorMsg, InetAddress address, int port) {
         byte[] buf = new byte[516];
         byte[] errCode = setErrorCode(errorCode);
@@ -208,6 +276,12 @@ public class UDPSocketServerThread extends Thread {
         return pkt;
     }
     
+    /**
+     * The method takes a opcode through the parameter and splits the opcode into a byte array of size 2.
+     * This byte array is then returned.
+     * @param opcode The opcode to be converted into a byte array of size 2.
+     * @return byte array of the converted opcode.
+     */
     public byte[] setOpcode(int opcode) {
         byte[] arr = new byte[2];
         arr[0] = (byte) ((opcode >> 8) & 0xFF);
@@ -215,10 +289,21 @@ public class UDPSocketServerThread extends Thread {
         return arr;
     }
     
+    /**
+     * The method takes a byte array and returns the opcode as an int from the byte array.
+     * @param arr The byte array containing the opcode.
+     * @return Opcode as an int
+     */
     public int getOpcode(byte[] arr) {
         return((arr[0] & 0xFF) << 8) | (arr[1] & 0xFF);
     }
     
+    /**
+     * The method takes a block number through the parameter and splits the block number into a byte array of size 2.
+     * This byte array is then returned.
+     * @param blockNum The block number to be converted into a byte array of size 2.
+     * @return byte array of the converted block number.
+     */
     public byte[] setBlockNum(int blockNum) {
         byte[] arr = new byte[2];
         arr[0] = (byte) ((blockNum >> 8) & 0xFF);
@@ -226,10 +311,21 @@ public class UDPSocketServerThread extends Thread {
         return arr;
     }
     
+    /**
+     * The method takes a byte array and returns the block number as an int from the byte array.
+     * @param arr The byte array containing the block number.
+     * @return Block number as an int.
+     */
     public int getBlockNum(byte[] arr) {
         return((arr[2] & 0xFF) << 8) | (arr[3] & 0xFF);
     }
     
+    /**
+     * The method takes an error code through the parameter and splits the error code into a byte array of size 2.
+     * This byte array is then returned.
+     * @param errorCode The error code to be converted into a byte array of size 2.
+     * @return byte array of the converted error code.
+     */
     public byte[] setErrorCode(int errorCode) {
         byte[] arr = new byte[2];
         arr[0] = (byte) ((errorCode >> 8) & 0xFF);
@@ -237,10 +333,21 @@ public class UDPSocketServerThread extends Thread {
         return arr;
     }
     
+    /**
+     * The method takes a byte array and returns the error code as an int from the byte array.
+     * @param arr The byte array containing the error code.
+     * @return Error code as an int.
+     */
     public int getErrorCode(byte[] arr) {
         return((arr[2] & 0xFF) << 8) | (arr[3] & 0xFF);
     }
     
+    /**
+     * The method returns a string containing the file name from the byte array passed through the parameter. The method
+     * iterates over the byte array from index 2 until it reaches end of the file length - 1 or it reaches the 0 byte.
+     * @param file The byte array where the file name needs to be extracted.
+     * @return The file name as a String.
+     */
     public String getFileName(byte[] file) {
         String fileName = "";
         byte zero = 0;
@@ -257,6 +364,12 @@ public class UDPSocketServerThread extends Thread {
         return fileName;
     }
     
+    /**
+     * The method returns the error message in the given byte array. The method copies the array from index 4 until the end of the byte array - 1.
+     * This is then returned as a String.
+     * @param errorMsg The byte array containing the error message.
+     * @return The error message as a String.
+     */
     public String getErrorMsg(byte[] errorMsg) {
         byte[] errMsg = Arrays.copyOfRange(errorMsg, 4, errorMsg.length - 1);
         return new String(errMsg);

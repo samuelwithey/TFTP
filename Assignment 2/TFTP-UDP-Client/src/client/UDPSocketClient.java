@@ -16,10 +16,9 @@ import java.util.Arrays;
 import java.util.Random;
 
 /**
- * 
- * @author 164574
  * The class acts as a client that connects to the server. It allows for user input to send a file to the server and receive a file
  * from the server. 
+ * @author 164574
  */
 public class UDPSocketClient {
     
@@ -160,9 +159,7 @@ public class UDPSocketClient {
         try {
             int expectedBlockNum = 1;
             Path currentRelativePath = Paths.get("");
-            String filePath = currentRelativePath.toAbsolutePath().toString();
-            filePath += "//" + fileName; //could move
-            outputStream = new FileOutputStream(filePath); 
+            boolean initial = true;
             socket = new DatagramSocket(generateTID()); 
             DatagramPacket RRQ = generateReadorWritePacket(OP_RRQ, fileName, address, 9000);
             socket.send(RRQ); 
@@ -173,6 +170,15 @@ public class UDPSocketClient {
                 socket.receive(receivedPacket);
                 destinationTID = receivedPacket.getPort();
                 if(getOpcode(receivedPacket.getData()) == OP_DATA && getBlockNum(receivedPacket.getData()) == expectedBlockNum) {
+                    /*
+                    * Conditional statement to only generate the file once the correct packet has been receieved and not an error packet.
+                    */
+                    if(initial) {
+                        String filePath = currentRelativePath.toAbsolutePath().toString();
+                        filePath += "//" + fileName;
+                        outputStream = new FileOutputStream(filePath); 
+                        initial = false;
+                    }
                     System.out.println("Data packet received");
                     outputStream.write(Arrays.copyOfRange(receivedPacket.getData(), 4, receivedPacket.getLength()));
                     DatagramPacket ackPack = generateAckPacket(getBlockNum(receivedPacket.getData()), address, destinationTID);
