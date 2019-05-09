@@ -7,12 +7,23 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 
+/**
+ * The class loops forever, receiving DatagramPackets and creating new threads using the DatagramPackets.
+ * @author 164574
+ */
 public class UDPSocketServer {
     
     protected DatagramSocket socket = null;
     protected InetAddress address;
     protected byte[] buf;
 
+    /**
+     * The constructor loops forever waiting to receive packets from the client.
+     * Once a new packet has been received, a new thread is run using the DatagramPacket
+     * the method received.
+     * @throws SocketException
+     * @throws UnknownHostException 
+     */
     public UDPSocketServer() throws SocketException, UnknownHostException  {
         buf = new byte[516];
         address = InetAddress.getByName("127.0.0.1");
@@ -30,6 +41,12 @@ public class UDPSocketServer {
         }
     }
     
+    /**
+     * The main method creates a new instance of UDPSocketServer.
+     * @param args
+     * @throws SocketException
+     * @throws UnknownHostException 
+     */
     public static void main(String[] args) throws SocketException, UnknownHostException {
         UDPSocketServer server = new UDPSocketServer();
     }

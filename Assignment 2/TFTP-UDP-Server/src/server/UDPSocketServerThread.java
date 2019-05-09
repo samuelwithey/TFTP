@@ -14,20 +14,22 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
+/**
+ * 
+ * @author 164574
+ */
 public class UDPSocketServerThread extends Thread {
     
     protected DatagramSocket socket = null;
     protected InetAddress address;
     protected DatagramPacket receivePacket;
     private int destinationTID;
-    private byte OP_RRQ = 1;
-    private byte OP_WRQ = 2;
-    private byte OP_DATA = 3;
-    private byte OP_ACK = 4;
-    private byte OP_ERROR = 5;
+    private final int OP_RRQ = 1;
+    private final int OP_WRQ = 2;
+    private final int OP_DATA = 3;
+    private final int OP_ACK = 4;
+    private final int OP_ERROR = 5;
 
     public UDPSocketServerThread(DatagramPacket receivedPacket) throws SocketException, UnknownHostException {
         address = InetAddress.getByName("127.0.0.1");
