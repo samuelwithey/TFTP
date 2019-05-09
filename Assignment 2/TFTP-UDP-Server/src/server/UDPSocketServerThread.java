@@ -13,10 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class UDPSocketServerThread extends Thread {
     
@@ -44,15 +41,13 @@ public class UDPSocketServerThread extends Thread {
             try {
                 writeFileToClient();
             } catch (IOException ex) {
-                //Logger.getLogger(UDPSocketServerThread.class.getName()).log(Level.SEVERE, null, ex);
-                System.out.println("Error");
+                System.out.println("Error getting file from system.");
             }
         } else if(getOpcode(receivePacket.getData()) == OP_WRQ) {
             try {
                 getFileFromClient();
                 System.out.println("Write request received");
             } catch (IOException ex) {
-                //Logger.getLogger(UDPSocketServerThread.class.getName()).log(Level.SEVERE, null, ex);
                 System.out.println("Error");
             }
         } else if(getOpcode(receivePacket.getData()) == OP_ERROR) {
@@ -65,54 +60,90 @@ public class UDPSocketServerThread extends Thread {
         return rand.nextInt(60000) + 1024;
     }
     
+    /**
+     * RRQ
+     * @throws SocketException
+     * @throws IOException 
+     */
     public void writeFileToClient() throws SocketException, IOException {
-        //socket = new DatagramSocket(generateTID()); //generate new socket using random TID port
-        int blockNum = 0;
+        int blockNum = 1;
+        int expectedBlockNum = 1;
         byte[] fileData;
         int bytesLeft = 0;
         int index = 0;
+        boolean firstPacket = true;
         File file;
         String fileName = getFileName(receivePacket.getData());
         file = getFile(fileName);
         fileData = Files.readAllBytes(file.toPath());
         bytesLeft = fileData.length;
-        DatagramPacket dataPacket = generateDataPacket(blockNum, Arrays.copyOfRange(fileData, index, 512), address, destinationTID);
-        socket.send(dataPacket);
-        index += 512;
-        bytesLeft -= 512;
+        System.out.println("File size: " + bytesLeft);
+        if(bytesLeft >= 512) {
+            byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + 512);
+            DatagramPacket dataPacket = generateDataPacket(blockNum, dataToSend, address, destinationTID);
+            socket.send(dataPacket);
+            System.out.println("Data packet has been sent with block #: " + blockNum);
+            blockNum++;
+            index += 512;
+            bytesLeft -= 512;
+        } else if(bytesLeft < 512) {
+            byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + bytesLeft + 1);
+            bytesLeft = 0;
+            index += bytesLeft;
+            DatagramPacket dataPack = generateDataPacket(blockNum, dataToSend, address, destinationTID);
+            socket.send(dataPack);
+            System.out.println("Final data packet has been sent with block #: " + blockNum);
+            blockNum++;
+        }
         DatagramPacket receivedPacket;
         do {
             receivedPacket = new DatagramPacket(new byte[4], 4);
             socket.receive(receivedPacket);
-            destinationTID = receivePacket.getPort();
-            if(getOpcode(receivePacket.getData()) == OP_ACK && getBlockNum(receivePacket.getData()) == blockNum){
-                blockNum++;
+            System.out.println("Received Acknowledgement from client with opcode: " + getOpcode(receivedPacket.getData()));
+            System.out.println("Received Acknowledgement from client with block #: " + getBlockNum(receivedPacket.getData()));
+            destinationTID = receivedPacket.getPort();
+            if(getOpcode(receivedPacket.getData()) == OP_ACK && getBlockNum(receivedPacket.getData()) == expectedBlockNum){
+                System.out.println("Ack packet has been receieved with the correct block number");
+                expectedBlockNum++;
                 if(bytesLeft >= 512) {
                     byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + 512);
                     bytesLeft -= 512;
                     index += 512;
                     DatagramPacket dataPack = generateDataPacket(blockNum, dataToSend, address, destinationTID);
                     socket.send(dataPack);
-                } else if(bytesLeft < 512) {
+                    System.out.println("Data packet sent with block #: " + blockNum);
+                    blockNum++;
+                } else if(bytesLeft < 512 && bytesLeft > 0) {
                     byte[] dataToSend = Arrays.copyOfRange(fileData, index, index + bytesLeft + 1);
                     bytesLeft = 0;
                     index += bytesLeft;
-                    DatagramPacket dataPack = generateDataPacket(blockNum, dataToSend, address, destinationTID); //sends back the same block number
+                    DatagramPacket dataPack = generateDataPacket(blockNum, dataToSend, address, destinationTID);
                     socket.send(dataPack);
+                    blockNum++;
+                } else if(bytesLeft == 0) {
+                    System.out.println("All data has been sent a final ack has been received");
                 }
+            } else {
+                System.out.println("Error with blockNum");
             }
         } while(bytesLeft > 0);
          socket.close();
     }
     
+    /**
+     * WRQ
+     * @throws SocketException
+     * @throws IOException 
+     */
     public void getFileFromClient() throws SocketException, IOException {
-        int blockNum = 0;
+        int expectedBlockNum = 0;
         Path currentRelativePath = Paths.get("");
         String filePath = currentRelativePath.toAbsolutePath().toString();
         filePath += "//" + getFileName(receivePacket.getData());
         try (FileOutputStream outputStream = new FileOutputStream(filePath)) {
             System.out.println("File output has been created");
-            DatagramPacket ackPacket = generateAckPacket(blockNum, address, destinationTID);
+            DatagramPacket ackPacket = generateAckPacket(expectedBlockNum, address, destinationTID);
+            expectedBlockNum++;
             socket.send(ackPacket);
             System.out.println("Ack packet has been sent");
             DatagramPacket receivedPacket;
@@ -120,20 +151,28 @@ public class UDPSocketServerThread extends Thread {
                 receivedPacket = new DatagramPacket(new byte[516], 516);
                 socket.receive(receivedPacket);
                 System.out.println("Packet has been received");
-                if(getOpcode(receivedPacket.getData()) == OP_DATA && getBlockNum(receivedPacket.getData()) == blockNum) {
+                if(getOpcode(receivedPacket.getData()) == OP_DATA && getBlockNum(receivedPacket.getData()) == expectedBlockNum) {
                     System.out.println("Packet is a data packet");
-                    outputStream.write(Arrays.copyOfRange(receivedPacket.getData(), 4, receivedPacket.getLength() - 1));
+                    outputStream.write(Arrays.copyOfRange(receivedPacket.getData(), 4, receivedPacket.getLength()));
                     System.out.println("data has been written to file");
                     DatagramPacket ackPack = generateAckPacket(getBlockNum(receivedPacket.getData()), address, destinationTID);
                     socket.send(ackPack);
                     System.out.println("Ack packet has been sent");
-                    blockNum++;
+                    expectedBlockNum++;
                 } else if(getOpcode(receivedPacket.getData()) == OP_ERROR) {
                     System.out.println("An error packet was received");
                 }
-            } while(receivedPacket.getData().length == 516 && ((getOpcode(receivedPacket.getData()) == OP_DATA) || (getOpcode(receivedPacket.getData()) == OP_ERROR)));
+            } while(removeTrailingBytes(receivedPacket.getData()).length == 516);
         }
         socket.close();
+    }
+    
+    private byte[] removeTrailingBytes(byte[] bytes) {
+        int i = bytes.length - 1;
+        while(i >= 0 && bytes[i] == 0) {
+            i--;
+        }
+        return Arrays.copyOf(bytes, i + 1);
     }
     
     public File getFile(String fileName) {
