@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package tftp.tcp.client;
 
 import java.io.BufferedReader;
@@ -20,10 +15,11 @@ import java.net.Socket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Random;
 
 /**
- *
+ * The class acts as a client that connects to the Server. It allows for the user to send read and write
+ * requests to the server and manages the functionality of sending and receiving the files based on the
+ * input of the file name from the user.
  * @author 164574
  */
 public class TCPClient {
@@ -31,7 +27,6 @@ public class TCPClient {
     private final int OP_RRQ = 1;
     private final int OP_WRQ = 2;
     private final int OP_DATA = 3;
-    private final int OP_ACK = 4;
     private final int OP_ERROR = 5;
     
     private InetAddress address;
@@ -42,11 +37,8 @@ public class TCPClient {
     private FileInputStream inputStream;
     private int blockNum;
     
-    private int destinationTID = 9000;
-    
     /**
-     * Constructor which sets the address and a new instance of socket which is created using 
-     * this address and a randomly generated port.
+     * Constructor which sets the address and calls the method getUserInput()
      * @throws IOException 
      */
     public TCPClient() throws IOException {
@@ -94,35 +86,34 @@ public class TCPClient {
     }
     
     /**
-     * The method writes a file to the server. It takes a file name passed from the user input and checks if the file
-     * exists on the system. If it does not exist, an error message is displayed and the user input menu is displayed.
-     * If the file exists, a new socket is generated using a new random TID and a Write Request (WRQ) is sent to the server.
-     * A new receiving packet is generated in the do while loop and this waits to receive an Acknowledgement Packet.
-     * Once it has received the packet, it checks if it is an Acknowledgement Packet and that it has the correct block number.
-     * The method then sends the data extracted from the file in 512 bytes and sends this to the server. The method waits until
-     * it receives the correct Acknowledgement number and this is completed until all the data from the file has been sent and the
-     * socket is closed.
+     * The method writes a file to the server. The method creates a new socket and new instance of inputData and outputData. The method
+     * then generates a request packet using the requestPacket method, taking the WRQ opcode and filename passed through the parameter
+     * from getUserInput(). The request is then sent to the server. inputStream then opens a connection to the file based on the filename.
+     * The method will then generate byte arrays of size 512 of data and send these buf arrays with the correct opcode and block number
+     * until the final byte array is sent of size bytes left when bytes left is less than 512. Once all data has been sent, the socket is closed.
      * @param fileName passed from getUserInput() to get the file from the client.
      */
-    public void writeFile(String fileName) throws IOException { //WRQ
+    public void writeFile(String fileName) throws IOException {
+        
         socket = new Socket(address, 9000);
         inputData = new DataInputStream(socket.getInputStream());
         outputData = new DataOutputStream(socket.getOutputStream());
         
-        System.out.println("Generating request packet");
+        System.out.println("Generating write request...");
         byte[] request = requestPacket(OP_WRQ, fileName);
         outputData.write(request);
-        System.out.println("Request packet sent");
+        System.out.println("Write request sent to server.");
         
         blockNum = 0;
-        inputStream = new FileInputStream(new File(fileName)); //gets file
+        inputStream = new FileInputStream(new File(fileName));
         
         byte[] data;
-        int bytesLeft;
+        int bytesLeft = inputStream.available();
         
         try {
             do{
-                bytesLeft = inputStream.available();
+                
+                System.out.println("Bytes left to send: " + bytesLeft);
                 if(bytesLeft >= 512) {
                     data = new byte[512];
                 } else {
@@ -134,6 +125,8 @@ public class TCPClient {
                 setBlockNum(allData, blockNum++);
                 setData(allData, data);
                 outputData.write(allData);
+                System.out.println("Data packet sent with block #: " + blockNum);
+                bytesLeft = inputStream.available();
             } while(bytesLeft > 0) ;
         } catch (IOException e) {
             System.out.println("Error");
@@ -148,18 +141,23 @@ public class TCPClient {
      * has the expected block code. The method will then write the data from the packet to the file stored locally and responds to the server
      * with an Acknowledgement Packet with the same block number that was sent. This will be continued until the final Data Packet has less than
      * 512 bytes of data. The socket will then close and the user menu will be displayed.
-     * @param fileName passed as a parameter from getUserInput() and used to send to the server through a RRQ packet.
+     * 
+     * The method receives a file from the server and writes the data to a file. The method takes a file name through the parameter which is used
+     * to send the read request. The read request is generated using the opcode and filename and sent the the server. The method generates a new file
+     * based on the file name. The method then reads data sent from the server in byte array size 516 and writes this data to the file until a byte array
+     * is received of data less than 516 bytes. Once the final byte array has been written to the file, the socket is closed.
+     * @param fileName passed as a parameter from getUserInput() and used to send to the server through a RRQ.
      */
     public void receiveFile(String fileName) throws IOException {
         socket = new Socket(address, 9000);
         inputData = new DataInputStream(socket.getInputStream());
         outputData = new DataOutputStream(socket.getOutputStream());
-        byte[] request = requestPacket(OP_RRQ, fileName); //send RRQ
-        try {
-            outputData.write(request);
-        } catch (IOException e) {
-            System.out.println("Error");;
-        }
+        
+        System.out.println("Generating read request...");
+        byte[] request = requestPacket(OP_RRQ, fileName);
+        outputData.write(request);
+        System.out.println("Read request sent to server.");
+        
         try {
             outputStream = new FileOutputStream(new File(fileName));
         } catch (FileNotFoundException ex) {
@@ -171,7 +169,8 @@ public class TCPClient {
                 data = new byte[516];
                 inputData.read(data);
                 if(getOpcode(data) == OP_DATA) {
-                    outputStream.write(Arrays.copyOfRange(getData(data), 0, data.length - 4));
+                    outputStream.write(removeTrailingBytes(Arrays.copyOfRange(getData(data), 0, data.length - 4)));
+                    System.out.println("Data has been written to file.");
                 } else if(getOpcode(data) == OP_ERROR) {
                     System.out.println("Error");
                 }
@@ -183,6 +182,13 @@ public class TCPClient {
         socket.close();
     }
     
+    /**
+     * The method generates a request of byte array 516 which includes the opcode, filename and
+     * mode. The byte array is then returned.
+     * @param opcode The opcode to be sent as two bytes
+     * @param fileName The file name generated into a byte array
+     * @return byte array of a request including opcode, filename and mode to be sent to the server
+     */
     public byte[] requestPacket(int opcode, String fileName) {
         byte[] arr = new byte[516];
         setOpcode(arr, opcode);
@@ -191,10 +197,22 @@ public class TCPClient {
         return arr;
     }
     
+    /**
+     * The method sets the filename for the byte array arr. It converts the file name into a byte array
+     * and inserts this and byte '0' into the array at index 2.
+     * @param arr The array which the filename needs to be inserted into as an array of bytes
+     * @param fileName The file name which needs to be inserted into as an array of bytes
+     */
     public void setFileName(byte[] arr, String fileName) {
         System.arraycopy((fileName+"\0").getBytes(), 0, arr, 2, fileName.length() + 1);
     }
     
+    /**
+     * The method sets the mode "Octet" for the byte array arr. It converts the mode into a byte array
+     * and inserts this and an additional byte '0' into the array at index fileNameLenght + 3.
+     * @param arr The array which the mode needs to be inserted into as an array of bytes
+     * @param fileNameLength The length of the file name, used for calculating the correct indexing.
+     */
     public void setMode(byte[] arr, int fileNameLength) {
         String mode = "Octet";
         System.arraycopy((mode+"\0").getBytes(), 0, arr, fileNameLength + 3, mode.length() + 1);
@@ -213,14 +231,6 @@ public class TCPClient {
         return Arrays.copyOf(bytes, i + 1);
     }
     
-    /**
-     * Returns a random int between 1024 and 60000 to be used as a port.
-     * @return random int between 1024 and 60000
-     */
-    public int generateTID() {
-        Random rand = new Random();
-        return rand.nextInt(60000) + 1024;
-    }
     
     /**
      * The method generates a file path using the file name passed through the parameter and gets the file locally.
@@ -235,10 +245,20 @@ public class TCPClient {
         return file;
     }
     
+    /**
+     * The method copies the byte array data into byte array arr starting from index 4.
+     * @param arr The array where the data needs to be copied into
+     * @param data The array which needs to be copied into arr
+     */
     public void setData(byte[] arr, byte[] data) {
         System.arraycopy(data, 0, arr, 4, data.length);
     }
     
+    /**
+     * The method gets the data from the byte array arr from index 4.
+     * @param arr The byte array
+     * @return arr excluding the first 4 elements of the array
+     */
     public byte[] getData(byte[] arr) {
         return Arrays.copyOfRange(arr, 4, arr.length);
     }
@@ -340,7 +360,7 @@ public class TCPClient {
     }         
 
     /**
-     * Main method creating a new instance of UDPSocketClient.
+     * Main method creating a new instance of TCPClient.
      * @param args
      * @throws IOException 
      */

@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package tftp.tcp.server;
 
 import java.io.DataInputStream;
@@ -12,22 +7,17 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import static java.lang.Byte.compare;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- *
+ * The class allows the client to interact with the server thread. The thread will receive a request from the client
+ * and it will fulfil the read or write request.
  * @author 164574
  */
 public class TCPServerThread extends Thread {
@@ -42,13 +32,11 @@ public class TCPServerThread extends Thread {
     private final int OP_RRQ = 1;
     private final int OP_WRQ = 2;
     private final int OP_DATA = 3;
-    private final int OP_ACK = 4;
     private final int OP_ERROR = 5;
 
     /**
-     * The constructor sets the address, generates a new socket, assigns the initial packet to a DatagramPacket and sets the TID
-     * to the random TID of the received packet.
-     * @param receivedPacket
+     * The constructor sets the address, generates a new socket, initialises inputData and outputData and sets blockNum to 0.
+     * @param socket
      * @throws SocketException
      * @throws UnknownHostException 
      */
@@ -62,7 +50,8 @@ public class TCPServerThread extends Thread {
     }
     
     /**
-     * The method checks the opcode of the received packet. It calls the corresponding methods based on the opcode.
+     * The method checks the opcode of the received packet. It calls the corresponding methods based on the opcode and passes the filename
+     * extracted from the request.
      */
     @Override
     public void run() {
@@ -89,13 +78,11 @@ public class TCPServerThread extends Thread {
     }
     
     /**
-     * The method handles the functionality of the Read Request (RRQ). It gets the file name from the RRQ Packet and gets the file
-     * locally. If the file is not found, an error message is displayed in the log and an error packet is sent back. If the file is found,
-     * the method sends the data in 512 bytes using the data packet. It waits to receive an Acknowledgement Packet with the correct block number
-     * before sending each chunk of 512 bytes. Once all the data has been sent and the final acknowledgement packet has been received, the connection
-     * is closed.
+     * The method handles the functionality of the Read Request (RRQ). It gets the file locally using the fileName from run(). The method creates byte arrays
+     * of size 512 which contains the data from the file. This data is sent to the client in bytes arrays of size 516 which includes the opcode and block number
+     * until all the data from the file has been sent to the client.
      */
-    public void writeFileToClient(String fileName){ //read request
+    public void writeFileToClient(String fileName){ 
         try {
             byte[] data;
             inputStream = new FileInputStream(getFile(fileName));
@@ -107,9 +94,8 @@ public class TCPServerThread extends Thread {
                 data = new byte[bytesLeft];
             }
             do {
-                inputStream.read(data); //getting data from file
+                inputStream.read(data);
                 byte[] total = new byte[data.length + 4];
-                //outputData.writeInt(total.length);
                 setOpcode(total, OP_DATA);
                 setBlockNum(total, blockNum++);
                 setData(total, data);
@@ -127,11 +113,8 @@ public class TCPServerThread extends Thread {
     }
     
     /**
-     * The method handles the functionality of the Write Request Packet (WRQ). The method replies to the initial WRQ packet with an
-     * acknowledgement packet. The method then waits to receive data packets from the client and sends back acknowledgements
-     * with the correct block number. Once the final packet has been received and all the data has been written to the file in the WRQ, 
-     * a final acknowledgement is sent and the connection is closed.
-     * 
+     * The method handles the functionality of the Write Request (WRQ). The method checks if the opcode of the received buf array is of type data
+     * and writes the data to the file until a buf array is received with less than 516 bytes of data.
      */
     public void getFileFromClient(String fileName) throws IOException { //WRQ
         byte[] data;
@@ -141,7 +124,7 @@ public class TCPServerThread extends Thread {
                 data = new byte[516];
                 inputData.read(data);
                 if(OP_DATA == getOpcode(data)) {
-                    outputStream.write(Arrays.copyOfRange(data, 4, data.length));
+                    outputStream.write(removeTrailingBytes(Arrays.copyOfRange(data, 4, data.length)));
                 }
             } while(removeTrailingBytes(data).length == 516);
         } catch(IOException e){
@@ -149,24 +132,23 @@ public class TCPServerThread extends Thread {
         }
     }
     
+    /**
+     * The method copies the byte array data into byte array arr starting from index 4.
+     * @param arr The array where the data needs to be copied into
+     * @param data The array which needs to be copied into arr
+     */
     public void setData(byte[] arr, byte[] data) {
         System.arraycopy(data, 0, arr, 4, data.length);
     }
     
-    public byte[] requestPacket(int opcode, String fileName, InetAddress address, int port ) {
-        byte[] arr = new byte[516];
-        setOpcode(arr, opcode);
-        setFileName(arr, fileName);
-        setMode(arr, fileName.length());
-        return arr;
-    }
-    
+    /**
+     * The method sets the filename for the byte array arr. It converts the file name into a byte array
+     * and inserts this and byte '0' into the array at index 2.
+     * @param arr The array which the filename needs to be inserted into as an array of bytes
+     * @param fileName The file name which needs to be inserted into as an array of bytes
+     */
     public void setFileName(byte[] arr, String fileName) {
         System.arraycopy((fileName+"/0").getBytes(), 0, arr, 2, fileName.length() + 1);
-    }
-    
-    public void setMode(byte[] arr, int fileNameLength) {
-        System.arraycopy(("Octet"+"\0").getBytes(), 0, arr, fileNameLength + 3, ("Octet"+"\0").length() + 1);
     }
     
     /**
